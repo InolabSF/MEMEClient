@@ -1,10 +1,10 @@
 #import "MEMELib.h"
-#import <SocketRocket/SRWebSocket.h>
+#import "RoutingHTTPServer.h"
 
 
-@interface MEMELib() <SRWebSocketDelegate>
+@interface MEMELib()
 
-@property (nonatomic) SRWebSocket *webSocket;
+    @property (nonatomic) RoutingHTTPServer *server;
 
 @end
 
@@ -22,13 +22,82 @@
     return lib;
 }
 
+- (id)init
+{
+    self = [super init];
+    if (self) {
+        // server
+        self.server = [RoutingHTTPServer new];
+        [self.server setPort:3000];
+        [self.server setDefaultHeader:@"content-type" value:@"application/json"];
+
+        __block __unsafe_unretained typeof(self) bself = self;
+        [self.server get:@"/memeAppAuthorized:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+            [bself.delegate memeAppAuthorized:[request.params[@"arg0"] intValue]];
+        }];
+        [self.server get:@"/memeFirmwareAuthorized:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+            [bself.delegate memeFirmwareAuthorized:[request.params[@"arg0"] intValue]];
+        }];
+        [self.server get:@"/memePeripheralFound:withDeviceAddress:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+            CBPeripheral *arg0 = [CBPeripheral new];
+            arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
+            [bself.delegate memePeripheralFound:arg0 withDeviceAddress:request.params[@"arg1"]];
+        }];
+        [self.server get:@"/memePeripheralConnected:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+            CBPeripheral *arg0 = [CBPeripheral new];
+            arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
+            [bself.delegate memePeripheralConnected:arg0];
+        }];
+        [self.server get:@"/memePeripheralDisconnected:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+            CBPeripheral *arg0 = [CBPeripheral new];
+            arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
+            [bself.delegate memePeripheralDisconnected:arg0];
+        }];
+        [self.server get:@"/memeRealTimeModeDataReceived:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+            MEMERealTimeData *data = [MEMERealTimeData new];
+            data.fitError = [request.params[@"arg0"] intValue];
+            data.isWalking = [request.params[@"arg1"] intValue];
+            data.powerLeft = [request.params[@"arg2"] intValue];
+            data.eyeMoveUp = [request.params[@"arg3"] intValue];
+            data.eyeMoveDown = [request.params[@"arg4"] intValue];
+            data.eyeMoveLeft = [request.params[@"arg5"] intValue];
+            data.eyeMoveRight = [request.params[@"arg6"] intValue];
+            data.blinkSpeed = [request.params[@"arg7"] intValue];
+            data.blinkStrength = [request.params[@"arg8"] intValue];
+            data.roll = [request.params[@"arg9"] floatValue];
+            data.pitch = [request.params[@"arg10"] floatValue];
+            data.yaw = [request.params[@"arg11"] floatValue];
+            data.accX = [request.params[@"arg12"] intValue];
+            data.accY = [request.params[@"arg13"] intValue];
+            data.accZ = [request.params[@"arg14"] intValue];
+
+            [bself.delegate memeRealTimeModeDataReceived:data];
+        }];
+        [self.server get:@"/memeCommandResponse:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+            MEMEResponse r;
+            r.eventCode = [request.params[@"arg0"] intValue];
+            r.commandResult = [request.params[@"arg1"] boolValue];
+            [bself.delegate memeCommandResponse:r];
+        }];
+
+        NSError *error;
+        if (![self.server start:&error]) {
+        }
+    }
+    return self;
+}
+
+- (void)setDelegate:(id<MEMELibDelegate>)del
+{
+    _delegate = del;
+}
 
 #pragma mark AUTH
 
 + (void) setAppClientId: (NSString *) clientId clientSecret: (NSString *) clientSecret
 {
-    [MEMELib requestAPI:@"set"
-              arguments:@{@"appClientId":clientId, @"clientSecret":clientSecret,}];
+    [MEMELib requestAPI:@"setAppClientId:clientSecret:"
+              arguments:@[clientId, clientSecret]];
 }
 
 
@@ -64,7 +133,7 @@
 
 - (MEMEStatus) connectPeripheral:(CBPeripheral *)peripheral
 {
-    return [[MEMELib requestAPI:@"connect" arguments:@{@"peripheral":[[peripheral identifier] UUIDString],}] intValue];
+    return [[MEMELib requestAPI:@"connectPeripheral:" arguments:@[[[peripheral identifier] UUIDString]]] intValue];
 }
 
 - (MEMEStatus) disconnectPeripheral
@@ -74,7 +143,7 @@
 
 - (NSArray *) getConnectedByOthers
 {
-    NSArray *peripheralStrings = [MEMELib requestAPI:@"getConnectedByOthers" arguments:nil];
+    NSArray *peripheralStrings = [[MEMELib requestAPI:@"getConnectedByOthers" arguments:nil] componentsSeparatedByString:@","];
 
     NSMutableArray *others = @[].mutableCopy;
     for (NSString *uuidString in peripheralStrings) {
@@ -113,7 +182,7 @@
 
 - (UInt8) getHWVersion
 {
-    return [[MEMELib requestAPI:@"getHWVersion" arguments:nil] unsignedIntegerValue];
+    return (UInt8)[[MEMELib requestAPI:@"getHWVersion" arguments:nil] intValue];
 }
 
 - (int) getConnectedDeviceType
@@ -127,128 +196,13 @@
 }
 
 
-#pragma mark - websocket
-- (void)connectWebSocket
-{
-    [self disconnectWebSocket];
-    self.webSocket = [[SRWebSocket alloc] initWithURLRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:kMEMEServerURL]]];
-    self.webSocket.delegate = self;
-    [self.webSocket open];
-}
-
-- (void)disconnectWebSocket
-{
-    if (self.webSocket) {
-        self.webSocket.delegate = nil;
-        [self.webSocket close];
-    }
-}
-
-
-#pragma mark - SRWebSocketDelegate
-- (void)webSocketDidOpen:(SRWebSocket *)webSocket;
-{
-    NSLog(@"Websocket Connected");
-}
-
-- (void)webSocket:(SRWebSocket *)webSocket didFailWithError:(NSError *)error;
-{
-    NSLog(@":( Websocket Failed With Error %@", error);
-    self.webSocket = nil;
-}
-
-- (void)webSocket:(SRWebSocket *)webSocket didReceiveMessage:(id)message;
-{
-    NSLog(@"Received \"%@\"", message);
-    if ([message isKindOfClass:[NSString class]] == NO) { return; }
-
-    // check if message means delegate
-    if (self.delegate == nil) { return; }
-    NSError *error = nil;
-    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:[message dataUsingEncoding:NSUTF8StringEncoding]
-                                                         options:NSJSONReadingMutableContainers
-                                                           error:&error];
-    if (error) { return; }
-    NSString *delegateMethodName = json[@"delegate"];
-    if ([delegateMethodName isKindOfClass:[NSString class]] == NO) { return; }
-    SEL selector = NSSelectorFromString(json[@"delegate"]);
-    if ([self.delegate respondsToSelector:selector] == NO) { return; }
-    NSArray *args = json[@"args"];
-    if ([args isKindOfClass:[NSArray class]] == NO) { return; }
-
-    // call delegate method
-    if ([delegateMethodName isEqualToString:@"memeAppAuthorized:"] && [args count] > 0) {
-        [self.delegate memeAppAuthorized:[args[0] intValue]];
-    }
-    else if ([delegateMethodName isEqualToString:@"memeFirmwareAuthorized:"] && [args count] > 0) {
-        [self.delegate memeFirmwareAuthorized:[args[0] intValue]];
-    }
-    else if ([delegateMethodName isEqualToString:@"memePeripheralFound:withDeviceAddress:"] && [args count] > 1) {
-        CBPeripheral *peripheral = [CBPeripheral new];
-        peripheral.identifier = [[NSUUID alloc] initWithUUIDString:args[0]];
-        [self.delegate memePeripheralFound:peripheral
-                         withDeviceAddress:args[1]];
-    }
-    else if ([delegateMethodName isEqualToString:@"memePeripheralConnected:"] && [args count] > 0) {
-        CBPeripheral *peripheral = [CBPeripheral new];
-        peripheral.identifier = [[NSUUID alloc] initWithUUIDString:args[0]];
-        [self.delegate memePeripheralConnected:peripheral];
-    }
-    else if ([delegateMethodName isEqualToString:@"memePeripheralDisconnected:"] && [args count] > 0) {
-        CBPeripheral *peripheral = [CBPeripheral new];
-        peripheral.identifier = [[NSUUID alloc] initWithUUIDString:args[0]];
-        [self.delegate memePeripheralDisconnected:peripheral];
-    }
-    else if ([delegateMethodName isEqualToString:@"memeRealTimeModeDataReceived:"] && [args count] > 0) {
-        NSDictionary *d = args[0];
-        MEMERealTimeData *data = [MEMERealTimeData new];
-        data.fitError = [d[@"fitError"] unsignedIntegerValue];
-        data.isWalking = [d[@"isWalking"] unsignedIntegerValue];
-        data.powerLeft = [d[@"powerLeft"] unsignedIntegerValue];
-        data.eyeMoveUp = [d[@"eyeMoveUp"] unsignedIntegerValue];
-        data.eyeMoveDown = [d[@"eyeMoveDown"] unsignedIntegerValue];
-        data.eyeMoveLeft = [d[@"eyeMoveLeft"] unsignedIntegerValue];
-        data.eyeMoveRight = [d[@"eyeMoveRight"] unsignedIntegerValue];
-        data.blinkSpeed = [d[@"blinkSpeed"] unsignedIntegerValue];
-        data.blinkStrength = [d[@"blinkStrength"] unsignedIntegerValue];
-        data.roll = [d[@"roll"] floatValue];
-        data.pitch = [d[@"pitch"] floatValue];
-        data.yaw = [d[@"yaw"] floatValue];
-        data.accX = [d[@"accX"] charValue];
-        data.accY = [d[@"accY"] charValue];
-        data.accZ = [d[@"accZ"] charValue];
-
-        [self.delegate memeRealTimeModeDataReceived:data];
-    }
-    else if ([delegateMethodName isEqualToString:@"memeCommandResponse:"] && [args count] > 0) {
-        NSDictionary *d = args[0];
-        MEMEResponse response;
-        response.eventCode = [d[@"eventCode"] intValue];
-        response.commandResult = [d[@"commandResult"] boolValue];
-        [self.delegate memeCommandResponse:response];
-    }
-
-}
-
-- (void)webSocket:(SRWebSocket *)webSocket didCloseWithCode:(NSInteger)code reason:(NSString *)reason wasClean:(BOOL)wasClean;
-{
-    NSLog(@"WebSocket closed");
-    self.webSocket = nil;
-}
-
-- (void)webSocket:(SRWebSocket *)webSocket didReceivePong:(NSData *)pongPayload;
-{
-    NSLog(@"Websocket received pong");
-}
-
-
 #pragma mark - private api
 + (id)requestAPI:(NSString *)API
-       arguments:(NSDictionary *)arguments
+       arguments:(NSArray *)arguments
 {
     NSMutableArray *queryItems = @[].mutableCopy;
-    for (NSString *key in arguments) {
-        [queryItems addObject:[NSURLQueryItem queryItemWithName:key value:arguments[key]]];
+    for (int i = 0; i < [arguments count]; i++) {
+        [queryItems addObject:[NSURLQueryItem queryItemWithName:[NSString stringWithFormat:@"arg%d", i] value:arguments[i]]];
     }
     NSURLComponents *URLComponents = [NSURLComponents componentsWithString:[NSString stringWithFormat:@"%@%@", kMEMEServerURL, API]];
     URLComponents.queryItems = queryItems;
@@ -257,20 +211,16 @@
     [request setURL:URLComponents.URL];
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
 
-    NSURLResponse *response;
     NSError *error = nil;
     NSData *result = [NSURLConnection sendSynchronousRequest:request
-                                           returningResponse:&response
+                                           returningResponse:nil
                                                        error:&error];
-    if (error) { }
+    if (error) {
+        NSLog(@"!!!!!!!!!!!!!!!\nAPI:%@\narguments:%@\nerror:%@", API, arguments, error);
+    }
 
-    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:result
-                                                     options:NSJSONReadingMutableContainers
-                                                           error:&error];
-    if (error) { }
-
-    if (json[@"return"] != nil) { return json[@"return"]; }
-    return @"-1";
+    NSString *str = [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding];
+    return str;
 }
 
 

@@ -7,8 +7,7 @@
 
 @property (weak) IBOutlet NSWindow *window;
 @property (nonatomic) NSButton *APITestButton;
-@property (nonatomic) NSButton *connectWebSocketButton;
-@property (nonatomic) NSButton *disconnectWebSocketButton;
+@property (nonatomic) NSButton *serverButton;
 
 @end
 
@@ -20,16 +19,15 @@
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
     self.APITestButton = [[NSButton alloc] initWithFrame:CGRectMake(0, 0, 100, 100)];
     self.APITestButton.title = @"test api";
-    self.connectWebSocketButton = [[NSButton alloc] initWithFrame:CGRectMake(100, 0, 100, 100)];
-    self.connectWebSocketButton.title = @"connect websocket";
-    self.disconnectWebSocketButton = [[NSButton alloc] initWithFrame:CGRectMake(200, 0, 100, 100)];
-    self.disconnectWebSocketButton.title = @"disconnect websocket";
-    NSArray *buttons = @[self.APITestButton, self.connectWebSocketButton, self.disconnectWebSocketButton];
-    for (NSButton *button in buttons) {
-        [button setTarget:self];
-        [button setAction:@selector(clickedWithButton:)];
-        [self.window.contentView addSubview:button];
-    }
+    [self.APITestButton setTarget:self];
+    [self.APITestButton setAction:@selector(clickedWithButton:)];
+    [self.window.contentView addSubview:self.APITestButton];
+    
+    self.serverButton = [[NSButton alloc] initWithFrame:CGRectMake(1000, 0, 100, 100)];
+    self.serverButton.title = @"server";
+    [self.serverButton setTarget:self];
+    [self.serverButton setAction:@selector(clickedWithButton:)];
+    [self.window.contentView addSubview:self.serverButton];
 
     [MEMELib setAppClientId:@"YOUR_MEME_APP_CLIENT_ID"
                clientSecret:@"YOUR_MEME_CLIENT_SECRET"];
@@ -45,12 +43,6 @@
 {
     if (button == self.APITestButton) {
         [self testAPIs];
-    }
-    else if (button == self.connectWebSocketButton) {
-        [[MEMELib sharedInstance] connectWebSocket];
-    }
-    else if (button == self.disconnectWebSocketButton) {
-        [[MEMELib sharedInstance] disconnectWebSocket];
     }
 }
 

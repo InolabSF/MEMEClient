@@ -95,8 +95,7 @@ typedef enum {
 - (int) getConnectedDeviceType;
 - (int) getConnectedDeviceSubType;
 
-#pragma mark - websocket
-- (void)connectWebSocket;
-- (void)disconnectWebSocket;
+
+- (void)startServer;
 
 @end

@@ -50,22 +50,3 @@ Set your iPhone's IP address. /MEMEClient/MEMELib/MEMELib.h
 /MEMEClient/MEMELib/MEMERealTimeData.h
 /MEMEClient/MEMELib/MEMERealTimeData.m
 ```
-
-* Third Party Library
-```
-SRWebSocket https://github.com/square/SocketRocket.git
-```
-
-* Code
-```
-    [MEMELib setAppClientId:YOUR_MEME_APP_CLIENT_ID
-               clientSecret:YOUR_MEME_CLIENT_SECRET];
-    [[MEMELib sharedInstance] setDelegate:self];
-```
-All MEMELib APIs and delegates are covered.
-
-* It's implemented by web socket to receive the delegate events, so you should write web socket connection code before using...
-```
-    [[MEMELib sharedInstance] connectWebSocket];
-    [[MEMELib sharedInstance] disconnectWebSocket];
-```
