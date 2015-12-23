@@ -96,6 +96,4 @@ typedef enum {
 - (int) getConnectedDeviceSubType;
 
 
-- (void)startServer;
-
 @end

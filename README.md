@@ -50,3 +50,23 @@ Set your iPhone's IP address. /MEMEClient/MEMELib/MEMELib.h
 /MEMEClient/MEMELib/MEMERealTimeData.h
 /MEMEClient/MEMELib/MEMERealTimeData.m
 ```
+
+### MEMELibDelegate
+
+It's implemented by HTTP Server.
+
+```
+API: /memeAppAuthorized
+
+API: /memeFirmwareAuthorized:
+
+API: /memePeripheralFound:withDeviceAddress:
+
+API: /memePeripheralConnected:
+
+API: /memePeripheralDisconnected:
+
+API: /memeRealTimeModeDataReceived:
+
+API: /memeCommandResponse:
+```
