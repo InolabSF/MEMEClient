@@ -160,17 +160,22 @@
 
 - (void) memePeripheralFound: (CBPeripheral *) peripheral withDeviceAddress: (NSString *) address
 {
-    NSString *UUIDString = [peripheral.identifier UUIDString];
-    NSLog(@"UUIDString: %@\naddress: %@", UUIDString, address);
+    __block __unsafe_unretained typeof(self) bself = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
 
-    BOOL alreadyFound = FALSE;
-    for (CBPeripheral *peripheral in self.peripherals) {
-        if ([[peripheral.identifier UUIDString] isEqualToString:UUIDString]) { alreadyFound = TRUE; break; }
-    }
-    if (alreadyFound) { return; }
-    [self.peripherals addObject:peripheral];
+        NSString *UUIDString = [peripheral.identifier UUIDString];
+        NSLog(@"UUIDString: %@\naddress: %@", UUIDString, address);
 
-    [self.popupButton addItemWithTitle:UUIDString];
+        BOOL alreadyFound = FALSE;
+        for (CBPeripheral *peripheral in bself.peripherals) {
+            if ([[peripheral.identifier UUIDString] isEqualToString:UUIDString]) { alreadyFound = TRUE; break; }
+        }
+        if (!alreadyFound) {
+            [bself.peripherals addObject:peripheral];
+            [bself.popupButton addItemWithTitle:UUIDString];
+        }
+
+    });
 }
 
 - (void) memePeripheralConnected: (CBPeripheral *)peripheral

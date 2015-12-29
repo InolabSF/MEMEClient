@@ -2,10 +2,16 @@
 #import "RoutingHTTPServer.h"
 
 
+NSString * const MEMEErrDomain        = @"com.jins.mem.error";
+NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
+
+
 @interface MEMELib()
 
-    @property (nonatomic) RoutingHTTPServer *server;
-
+@property (nonatomic) RoutingHTTPServer *server;
+@property (nonatomic, assign) BOOL                   clientInitialized;
+@property (nonatomic, strong) NSString              *clientID;
+@property (nonatomic, strong) NSString              *clientSecret;
 @end
 
 
@@ -26,6 +32,8 @@
 {
     self = [super init];
     if (self) {
+        _clientInitialized = NO;
+
         // server
         self.server = [RoutingHTTPServer new];
         [self.server setPort:3000];
@@ -96,8 +104,8 @@
 
 + (void) setAppClientId: (NSString *) clientId clientSecret: (NSString *) clientSecret
 {
-    [MEMELib requestAPI:@"setAppClientId:clientSecret:"
-              arguments:@[clientId, clientSecret]];
+    [[MEMELib sharedInstance] setClientID:clientId];
+    [[MEMELib sharedInstance] setClientSecret:clientSecret];
 }
 
 
@@ -105,17 +113,17 @@
 
 - (BOOL) isConnected
 {
-    return [[MEMELib requestAPI:@"isConnected" arguments:nil] boolValue];
+    return [[self callValueAPI:@"isConnected"] boolValue];
 }
 
 - (BOOL) isDataReceiving
 {
-    return [[MEMELib requestAPI:@"isDataReceiving" arguments:nil] boolValue];
+    return [[self callValueAPI:@"isDataReceiving"] boolValue];
 }
 
 - (MEMECalibStatus) isCalibrated
 {
-    return [[MEMELib requestAPI:@"isCalibrated" arguments:nil] intValue];
+    return [[self callValueAPI:@"isCalibrated"] boolValue];
 }
 
 
@@ -123,27 +131,27 @@
 
 - (MEMEStatus) startScanningPeripherals
 {
-    return [[MEMELib requestAPI:@"startScanningPeripherals" arguments:nil] intValue];
+    return [self callStatusAPI:@"startScanningPeripherals"];
 }
 
 - (MEMEStatus) stopScanningPeripherals
 {
-    return [[MEMELib requestAPI:@"stopScanningPeripherals" arguments:nil] intValue];
+    return [self callStatusAPI:@"stopScanningPeripherals"];
 }
 
 - (MEMEStatus) connectPeripheral:(CBPeripheral *)peripheral
 {
-    return [[MEMELib requestAPI:@"connectPeripheral:" arguments:@[[[peripheral identifier] UUIDString]]] intValue];
+    return [self callStatusAPI:@"connectPeripheral:" withArguments:@[[[peripheral identifier] UUIDString]]];
 }
 
 - (MEMEStatus) disconnectPeripheral
 {
-    return [[MEMELib requestAPI:@"disconnectPeripheral" arguments:nil] intValue];
+    return [self callStatusAPI:@"disconnectPeripheral"];
 }
 
 - (NSArray *) getConnectedByOthers
 {
-    NSArray *peripheralStrings = [[MEMELib requestAPI:@"getConnectedByOthers" arguments:nil] componentsSeparatedByString:@","];
+    NSArray        *peripheralStrings = [self callValueAPI:@"getConnectedByOthers"];
 
     NSMutableArray *others = @[].mutableCopy;
     for (NSString *uuidString in peripheralStrings) {
@@ -159,12 +167,12 @@
 
 - (MEMEStatus) startDataReport
 {
-    return [[MEMELib requestAPI:@"startDataReport" arguments:nil] intValue];
+    return [self callStatusAPI:@"startDataReport"];
 }
 
 - (MEMEStatus) stopDataReport
 {
-    return [[MEMELib requestAPI:@"stopDataReport" arguments:nil] intValue];
+    return [self callStatusAPI:@"stopDataReport"];
 }
 
 
@@ -172,31 +180,110 @@
 
 - (NSString *) getSDKVersion
 {
-    return [MEMELib requestAPI:@"getSDKVersion" arguments:nil];
+    return [self callValueAPI:@"getSDKVersion"];
 }
 
 - (NSString *) getFWVersion
 {
-    return [MEMELib requestAPI:@"getFWVersion" arguments:nil];
+    return [self callValueAPI:@"getFWVersion"];
 }
 
 - (UInt8) getHWVersion
 {
-    return (UInt8)[[MEMELib requestAPI:@"getHWVersion" arguments:nil] intValue];
+    return [[self callValueAPI:@"getHWVersion"] unsignedCharValue];
 }
 
 - (int) getConnectedDeviceType
 {
-    return [[MEMELib requestAPI:@"getConnectedDeviceType" arguments:nil] intValue];
+    return [[self callValueAPI:@"getConnectedDeviceType"] intValue];
 }
 
 - (int) getConnectedDeviceSubType
 {
-    return [[MEMELib requestAPI:@"getConnectedDeviceSubType" arguments:nil] intValue];
+    return [[self callValueAPI:@"getConnectedDeviceSubType"] intValue];
 }
 
 
 #pragma mark - private api
+- (MEMEStatus) callStatusAPI:(NSString *)api withArguments:(NSArray *)args
+{
+    NSError *error     = nil;
+    id       apiResult = [self callAPI:api withArguments:args error:&error];
+
+    if (error == nil) {
+        return (MEMEStatus) [apiResult intValue];
+    }
+    else if ([error.domain isEqualToString:MEMEErrDomain]) {
+        return (MEMEStatus) [error.userInfo[MEMEErrStatusCodeKey] intValue];
+    }
+    return MEME_ERROR;
+}
+
+- (MEMEStatus)callStatusAPI:(NSString *)api
+{
+    return [self callStatusAPI:api withArguments:nil];
+}
+
+- (id) callValueAPI:(NSString *)api withArguments:(NSArray *)args
+{
+    NSError *error     = nil;
+    id       apiResult = [self callAPI:api withArguments:args error:&error];
+
+    if (error != nil) {
+        NSLog(@"Unexpected error: %@", error.userInfo[NSLocalizedDescriptionKey]);
+        return @"-1";
+    }
+    return apiResult;
+}
+
+- (id) callValueAPI:(NSString *)api
+{
+    return [self callValueAPI:api withArguments:nil];
+}
+
+- (id)    callAPI:(NSString *)api
+    withArguments:(NSArray *)args
+            error:(NSError * __autoreleasing *)error
+{
+    if (!self.clientInitialized) {
+        NSAssert((self.clientID != nil) && (self.clientSecret != nil), @"Must set client id and secret first");
+        self.clientInitialized = YES;
+
+        id result = [self callValueAPI:@"setAppClientId:clientSecret:"
+                         withArguments:@[ self.clientID, self.clientSecret ]];
+
+        if ([result isEqualToString:@"-1"]) {
+            self.clientInitialized = NO;
+            return nil;
+        }
+    }
+
+    NSMutableArray *queryItems = @[].mutableCopy;
+    NSURLComponents *URLComponents = [NSURLComponents componentsWithString:[NSString stringWithFormat:@"%@%@", kMEMEServerURL, api]];
+    if (args) {
+        for (int i = 0; i < [args count]; i++) {
+            [queryItems addObject:[NSURLQueryItem queryItemWithName:[NSString stringWithFormat:@"arg%d", i] value:args[i]]];
+        }
+        URLComponents.queryItems = queryItems;
+    }
+
+    NSMutableURLRequest *request = [NSMutableURLRequest new];
+    [request setURL:URLComponents.URL];
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+
+    NSData *result = [NSURLConnection sendSynchronousRequest:request
+                                           returningResponse:nil
+                                                       error:error];
+    if (*error) {
+        NSLog(@"!!!!!!!!!!!!!!!\napi:%@\nargs:%@\nerror:%@", api, args, *error);
+        return nil;
+    }
+
+    NSString *str = [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding];
+    return str;
+} /* callAPI */
+
+/*
 + (id)requestAPI:(NSString *)API
        arguments:(NSArray *)arguments
 {
@@ -222,6 +309,6 @@
     NSString *str = [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding];
     return str;
 }
-
+*/
 
 @end
