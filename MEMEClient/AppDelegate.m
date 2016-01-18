@@ -108,7 +108,7 @@
             return;
         }
 
-        CBPeripheral *peripheral = [CBPeripheral new];
+        ProxyCBPeripheral *peripheral = [ProxyCBPeripheral new];
         peripheral.identifier = [[NSUUID alloc] initWithUUIDString:UUIDString];
         [self.textView setString:[NSString stringWithFormat:@"[[MEMELib sharedInstance] connectPeripheral:peripheral] = %d", [[MEMELib sharedInstance] connectPeripheral:peripheral]]];
     }
@@ -158,7 +158,7 @@
     NSLog(@"status: %d", status);
 }
 
-- (void) memePeripheralFound: (CBPeripheral *) peripheral withDeviceAddress: (NSString *) address
+- (void) memePeripheralFound: (ProxyCBPeripheral *) peripheral withDeviceAddress: (NSString *) address
 {
     __block __unsafe_unretained typeof(self) bself = self;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -167,7 +167,7 @@
         NSLog(@"UUIDString: %@\naddress: %@", UUIDString, address);
 
         BOOL alreadyFound = FALSE;
-        for (CBPeripheral *peripheral in bself.peripherals) {
+        for (ProxyCBPeripheral *peripheral in bself.peripherals) {
             if ([[peripheral.identifier UUIDString] isEqualToString:UUIDString]) { alreadyFound = TRUE; break; }
         }
         if (!alreadyFound) {
@@ -178,12 +178,12 @@
     });
 }
 
-- (void) memePeripheralConnected: (CBPeripheral *)peripheral
+- (void) memePeripheralConnected: (ProxyCBPeripheral *)peripheral
 {
     NSLog(@"UUIDString: %@", [peripheral.identifier UUIDString]);
 }
 
-- (void) memePeripheralDisconnected: (CBPeripheral *)peripheral
+- (void) memePeripheralDisconnected: (ProxyCBPeripheral *)peripheral
 {
     NSLog(@"UUIDString: %@", [peripheral.identifier UUIDString]);
 }

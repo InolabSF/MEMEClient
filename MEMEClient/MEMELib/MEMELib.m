@@ -1,22 +1,109 @@
 #import "MEMELib.h"
 #import "RoutingHTTPServer.h"
 
+#if TARGET_OS_IPHONE
+
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 60000 // iOS 6.0 or later
+#define NEEDS_DISPATCH_RETAIN_RELEASE 0
+#else                                        // iOS 5.X or earlier
+#define NEEDS_DISPATCH_RETAIN_RELEASE 1
+#endif
+
+#else
+
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1080    // Mac OS X 10.8 or later
+#define NEEDS_DISPATCH_RETAIN_RELEASE 0
+#else
+#define NEEDS_DISPATCH_RETAIN_RELEASE 1 // Mac OS X 10.7 or earlier
+#endif
+
+#endif
 
 NSString * const MEMEErrDomain        = @"com.jins.mem.error";
 NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
 
 
-@interface MEMELib()
+@interface MEMELib() {
+    dispatch_queue_t _synchronizationQueue;
+    BOOL _authorizationPending;
+    BOOL _authorized;
+}
 
 @property (nonatomic) RoutingHTTPServer *server;
 @property (nonatomic, assign) BOOL                   clientInitialized;
 @property (nonatomic, strong) NSString              *clientID;
 @property (nonatomic, strong) NSString              *clientSecret;
+
 @end
 
 
 @implementation MEMELib
 
+#pragma mark - Authorization
+
+- (BOOL) isAuthorizationPending
+{
+    __block BOOL result = NO;
+    dispatch_sync(_synchronizationQueue, ^{
+        result = _authorizationPending;
+    });
+    return result;
+}
+
+- (void) setAuthorizedPending:(BOOL)authorizedPending
+{
+    dispatch_sync(_synchronizationQueue, ^{
+        _authorizationPending = authorizedPending;
+    });
+}
+
+- (BOOL) isAuthorized
+{
+    __block BOOL result = NO;
+    dispatch_sync(_synchronizationQueue, ^{
+        result = _authorized;
+    });
+    return result;
+}
+
+- (void) setAuthorized:(BOOL)authorized
+{
+    dispatch_sync(_synchronizationQueue, ^{
+        _authorized = authorized;
+    });
+}
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1011
+- (NSData *)sendSynchronousRequest:(NSURLRequest *)request
+                 returningResponse:(__autoreleasing NSURLResponse **)responsePtr
+                             error:(__autoreleasing NSError **)errorPtr
+{
+    dispatch_semaphore_t    sem;
+    __block NSData *        result;
+    
+    result = nil;
+    
+    sem = dispatch_semaphore_create(0);
+    
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+                                     completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                                         if (errorPtr != NULL) {
+                                             *errorPtr = error;
+                                         }
+                                         if (responsePtr != NULL) {
+                                             *responsePtr = response;
+                                         }  
+                                         if (error == nil) {  
+                                             result = data;  
+                                         }  
+                                         dispatch_semaphore_signal(sem);  
+                                     }] resume];  
+    
+    dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);  
+    
+    return result;  
+}
+#endif
 
 + (MEMELib *)sharedInstance
 {
@@ -32,34 +119,37 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
 {
     self = [super init];
     if (self) {
-        _clientInitialized = NO;
+        _authorizationPending = NO;
+        _authorized = NO;
+        _synchronizationQueue = dispatch_queue_create("MEMEBridge.peripheralManagingQueue", DISPATCH_QUEUE_SERIAL);
 
         // server
         self.server = [RoutingHTTPServer new];
         [self.server setPort:3000];
         [self.server setDefaultHeader:@"content-type" value:@"application/json"];
 
-        __block __unsafe_unretained typeof(self) bself = self;
         [self.server get:@"/memeAppAuthorized:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            [bself.delegate memeAppAuthorized:[request.params[@"arg0"] intValue]];
+            [self setAuthorized:YES];
+            [self setAuthorizedPending:NO];
+            [self.delegate memeAppAuthorized:[request.params[@"arg0"] intValue]];
         }];
         [self.server get:@"/memeFirmwareAuthorized:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            [bself.delegate memeFirmwareAuthorized:[request.params[@"arg0"] intValue]];
+            [self.delegate memeFirmwareAuthorized:[request.params[@"arg0"] intValue]];
         }];
         [self.server get:@"/memePeripheralFound:withDeviceAddress:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            CBPeripheral *arg0 = [CBPeripheral new];
+            ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
             arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
-            [bself.delegate memePeripheralFound:arg0 withDeviceAddress:request.params[@"arg1"]];
+            [self.delegate memePeripheralFound:arg0 withDeviceAddress:request.params[@"arg1"]];
         }];
         [self.server get:@"/memePeripheralConnected:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            CBPeripheral *arg0 = [CBPeripheral new];
+            ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
             arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
-            [bself.delegate memePeripheralConnected:arg0];
+            [self.delegate memePeripheralConnected:arg0];
         }];
         [self.server get:@"/memePeripheralDisconnected:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            CBPeripheral *arg0 = [CBPeripheral new];
+            ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
             arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
-            [bself.delegate memePeripheralDisconnected:arg0];
+            [self.delegate memePeripheralDisconnected:arg0];
         }];
         [self.server get:@"/memeRealTimeModeDataReceived:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             MEMERealTimeData *data = [MEMERealTimeData new];
@@ -79,13 +169,13 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
             data.accY = [request.params[@"arg13"] intValue];
             data.accZ = [request.params[@"arg14"] intValue];
 
-            [bself.delegate memeRealTimeModeDataReceived:data];
+            [self.delegate memeRealTimeModeDataReceived:data];
         }];
         [self.server get:@"/memeCommandResponse:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             MEMEResponse r;
             r.eventCode = [request.params[@"arg0"] intValue];
             r.commandResult = [request.params[@"arg1"] boolValue];
-            [bself.delegate memeCommandResponse:r];
+            [self.delegate memeCommandResponse:r];
         }];
 
         NSError *error;
@@ -95,17 +185,47 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
     return self;
 }
 
+-(void)dealloc
+{
+#if NEEDS_DISPATCH_RETAIN_RELEASE
+    dispatch_release(_synchronizationQueue);
+#endif
+}
+
 - (void)setDelegate:(id<MEMELibDelegate>)del
 {
     _delegate = del;
 }
 
+- (void) setAppClientId:(NSString *)clientId
+           clientSecret:(NSString *)clientSecret
+{
+    if ([self isAuthorizationPending]) {
+        NSLog(@"Authorization already pending; ignored");
+    }
+    else if ([self isAuthorized]) {
+        NSLog(@"Authorization already done; ignored");
+    }
+    else {
+        self.clientID     = clientId;
+        self.clientSecret = clientSecret;
+        
+        [self setAuthorizedPending:YES];
+        id result = [self callValueAPI:@"setAppClientId:clientSecret:"
+                         withArguments:@[ self.clientID, self.clientSecret ]];
+        
+        if ([result isEqualToString:@"-1"]) {
+            NSLog(@"Setting client id/secret failed");
+            [self setAuthorizedPending:NO];
+        }
+    }
+}
+
 #pragma mark AUTH
 
-+ (void) setAppClientId: (NSString *) clientId clientSecret: (NSString *) clientSecret
++ (void) setAppClientId:(NSString *)clientId clientSecret:(NSString *)clientSecret
 {
-    [[MEMELib sharedInstance] setClientID:clientId];
-    [[MEMELib sharedInstance] setClientSecret:clientSecret];
+    [[self sharedInstance] setAppClientId:clientId clientSecret:clientSecret];
 }
 
 
@@ -123,7 +243,7 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
 
 - (MEMECalibStatus) isCalibrated
 {
-    return [[self callValueAPI:@"isCalibrated"] boolValue];
+    return [[self callValueAPI:@"isCalibrated"] intValue];
 }
 
 
@@ -139,7 +259,7 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
     return [self callStatusAPI:@"stopScanningPeripherals"];
 }
 
-- (MEMEStatus) connectPeripheral:(CBPeripheral *)peripheral
+- (MEMEStatus) connectPeripheral:(ProxyCBPeripheral *)peripheral
 {
     return [self callStatusAPI:@"connectPeripheral:" withArguments:@[[[peripheral identifier] UUIDString]]];
 }
@@ -155,7 +275,7 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
 
     NSMutableArray *others = @[].mutableCopy;
     for (NSString *uuidString in peripheralStrings) {
-        CBPeripheral *peripheral = [CBPeripheral new];
+        ProxyCBPeripheral *peripheral = [ProxyCBPeripheral new];
         peripheral.identifier = [[NSUUID alloc] initWithUUIDString:uuidString];
         [others addObject:peripheral];
     }
@@ -205,6 +325,55 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
 
 
 #pragma mark - private api
+- (id)    callAPI:(NSString *)api
+    withArguments:(NSArray *)args
+            error:(NSError * __autoreleasing *)error
+{
+    NSAssert([self isAuthorized] || [api isEqualToString:@"setAppClientId:clientSecret:"],
+                                        @"Client is not initialized/authorized");
+ 
+    NSMutableArray *queryItems = @[].mutableCopy;
+    NSURLComponents *URLComponents = [NSURLComponents componentsWithString:[NSString stringWithFormat:@"%@%@", kMEMEServerURL, api]];
+    if (args) {
+        for (int i = 0; i < [args count]; i++) {
+            [queryItems addObject:[NSURLQueryItem queryItemWithName:[NSString stringWithFormat:@"arg%d", i] value:args[i]]];
+        }
+        URLComponents.queryItems = queryItems;
+    }
+
+    NSMutableURLRequest *request = [NSMutableURLRequest new];
+    [request setURL:URLComponents.URL];
+    NSLog(@"Sending request url: %@", URLComponents.URL.absoluteString);
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    NSHTTPURLResponse *response = nil;
+    
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1011
+    NSData *resultData = [self sendSynchronousRequest:request
+                                returningResponse:&response
+                                            error:error];
+#else
+    NSData *resultData = [NSURLConnection sendSynchronousRequest:request
+                                           returningResponse:&response
+                                                       error:error];
+#endif
+    
+    NSString *result = [[NSString alloc] initWithData:resultData encoding:NSUTF8StringEncoding];
+    if (*error) {
+        NSLog(@"!!!!!!!!!!!!!!!\napi:%@\nargs:%@\nerror:%@", api, args, *error);
+        return nil;
+    }
+    else if (response.statusCode != 200) {
+        NSLog(@"API call returned status: %ld: Response: %@, Body: \"%@\"", (long)response.statusCode, response, result);
+        if (error != nil) {
+            *error = [NSError errorWithDomain:MEMEErrDomain code:response.statusCode userInfo:@{ MEMEErrStatusCodeKey: @(MEME_ERROR) }];
+        }
+    }
+    else {
+        NSLog(@"Received response: %@", result);
+    }
+    return result;
+} /* callAPI */
+
 - (MEMEStatus) callStatusAPI:(NSString *)api withArguments:(NSArray *)args
 {
     NSError *error     = nil;
@@ -241,47 +410,6 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
     return [self callValueAPI:api withArguments:nil];
 }
 
-- (id)    callAPI:(NSString *)api
-    withArguments:(NSArray *)args
-            error:(NSError * __autoreleasing *)error
-{
-    if (!self.clientInitialized) {
-        NSAssert((self.clientID != nil) && (self.clientSecret != nil), @"Must set client id and secret first");
-        self.clientInitialized = YES;
-
-        id result = [self callValueAPI:@"setAppClientId:clientSecret:"
-                         withArguments:@[ self.clientID, self.clientSecret ]];
-
-        if ([result isEqualToString:@"-1"]) {
-            self.clientInitialized = NO;
-            return nil;
-        }
-    }
-
-    NSMutableArray *queryItems = @[].mutableCopy;
-    NSURLComponents *URLComponents = [NSURLComponents componentsWithString:[NSString stringWithFormat:@"%@%@", kMEMEServerURL, api]];
-    if (args) {
-        for (int i = 0; i < [args count]; i++) {
-            [queryItems addObject:[NSURLQueryItem queryItemWithName:[NSString stringWithFormat:@"arg%d", i] value:args[i]]];
-        }
-        URLComponents.queryItems = queryItems;
-    }
-
-    NSMutableURLRequest *request = [NSMutableURLRequest new];
-    [request setURL:URLComponents.URL];
-    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-
-    NSData *result = [NSURLConnection sendSynchronousRequest:request
-                                           returningResponse:nil
-                                                       error:error];
-    if (*error) {
-        NSLog(@"!!!!!!!!!!!!!!!\napi:%@\nargs:%@\nerror:%@", api, args, *error);
-        return nil;
-    }
-
-    NSString *str = [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding];
-    return str;
-} /* callAPI */
 
 /*
 + (id)requestAPI:(NSString *)API

@@ -1,7 +1,7 @@
 #import <Foundation/Foundation.h>
 
 
-@interface CBPeripheral : NSObject
+@interface ProxyCBPeripheral : NSObject
 
 @property(nonatomic) NSUUID *identifier;
 

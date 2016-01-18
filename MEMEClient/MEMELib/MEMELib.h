@@ -1,9 +1,9 @@
 #import <Foundation/Foundation.h>
-#import "CBPeripheral.h"
+#import "ProxyCBPeripheral.h"
 #import "MEMERealTimeData.h"
 
 
-#define kMEMEServerURL @"http://10.2.2.28:3000/"
+#define kMEMEServerURL @"http://192.168.1.125:3000/"
 
 
 // MEME Device Type
@@ -46,10 +46,10 @@ typedef enum {
 - (void) memeAppAuthorized: (MEMEStatus) status;
 - (void) memeFirmwareAuthorized: (MEMEStatus) status;
 
-- (void) memePeripheralFound: (CBPeripheral *) peripheral withDeviceAddress: (NSString *) address;
+- (void) memePeripheralFound: (ProxyCBPeripheral *) peripheral withDeviceAddress: (NSString *) address;
 
-- (void) memePeripheralConnected: (CBPeripheral *)peripheral;
-- (void) memePeripheralDisconnected: (CBPeripheral *)peripheral;
+- (void) memePeripheralConnected: (ProxyCBPeripheral *)peripheral;
+- (void) memePeripheralDisconnected: (ProxyCBPeripheral *)peripheral;
 
 - (void) memeRealTimeModeDataReceived: (MEMERealTimeData *) data;
 
@@ -77,7 +77,7 @@ typedef enum {
 - (MEMEStatus) startScanningPeripherals;
 - (MEMEStatus) stopScanningPeripherals;
 
-- (MEMEStatus) connectPeripheral:(CBPeripheral *)peripheral;
+- (MEMEStatus) connectPeripheral:(ProxyCBPeripheral *)peripheral;
 - (MEMEStatus) disconnectPeripheral;
 
 - (NSArray *) getConnectedByOthers;

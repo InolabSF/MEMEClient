@@ -13,7 +13,7 @@
 		E66A3E0E1C29C0250024E1D0 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = E66A3E0C1C29C0250024E1D0 /* MainMenu.xib */; };
 		E66A3E1A1C29C60A0024E1D0 /* MEMELib.m in Sources */ = {isa = PBXBuildFile; fileRef = E66A3E171C29C60A0024E1D0 /* MEMELib.m */; };
 		E66A3E1B1C29C60A0024E1D0 /* MEMERealTimeData.m in Sources */ = {isa = PBXBuildFile; fileRef = E66A3E191C29C60A0024E1D0 /* MEMERealTimeData.m */; };
-		E66A3E1E1C29C7660024E1D0 /* CBPeripheral.m in Sources */ = {isa = PBXBuildFile; fileRef = E66A3E1D1C29C7660024E1D0 /* CBPeripheral.m */; };
+		E66A3E1E1C29C7660024E1D0 /* ProxyCBPeripheral.m in Sources */ = {isa = PBXBuildFile; fileRef = E66A3E1D1C29C7660024E1D0 /* ProxyCBPeripheral.m */; };
 		ED64D923F3879AC771184E9F /* libPods.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9D952CFF9AF006F317AA2ED0 /* libPods.a */; };
 /* End PBXBuildFile section */
 
@@ -31,8 +31,8 @@
 		E66A3E171C29C60A0024E1D0 /* MEMELib.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MEMELib.m; sourceTree = "<group>"; };
 		E66A3E181C29C60A0024E1D0 /* MEMERealTimeData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MEMERealTimeData.h; sourceTree = "<group>"; };
 		E66A3E191C29C60A0024E1D0 /* MEMERealTimeData.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MEMERealTimeData.m; sourceTree = "<group>"; };
-		E66A3E1C1C29C7660024E1D0 /* CBPeripheral.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CBPeripheral.h; sourceTree = "<group>"; };
-		E66A3E1D1C29C7660024E1D0 /* CBPeripheral.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CBPeripheral.m; sourceTree = "<group>"; };
+		E66A3E1C1C29C7660024E1D0 /* ProxyCBPeripheral.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProxyCBPeripheral.h; sourceTree = "<group>"; };
+		E66A3E1D1C29C7660024E1D0 /* ProxyCBPeripheral.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ProxyCBPeripheral.m; sourceTree = "<group>"; };
 		F18AEAA8C3C473E4E9436700 /* Pods.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.debug.xcconfig; path = "Pods/Target Support Files/Pods/Pods.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -108,8 +108,8 @@
 		E66A3E151C29C60A0024E1D0 /* MEMELib */ = {
 			isa = PBXGroup;
 			children = (
-				E66A3E1C1C29C7660024E1D0 /* CBPeripheral.h */,
-				E66A3E1D1C29C7660024E1D0 /* CBPeripheral.m */,
+				E66A3E1C1C29C7660024E1D0 /* ProxyCBPeripheral.h */,
+				E66A3E1D1C29C7660024E1D0 /* ProxyCBPeripheral.m */,
 				E66A3E161C29C60A0024E1D0 /* MEMELib.h */,
 				E66A3E171C29C60A0024E1D0 /* MEMELib.m */,
 				E66A3E181C29C60A0024E1D0 /* MEMERealTimeData.h */,
@@ -242,7 +242,7 @@
 				E66A3E061C29C0250024E1D0 /* AppDelegate.m in Sources */,
 				E66A3E1B1C29C60A0024E1D0 /* MEMERealTimeData.m in Sources */,
 				E66A3E1A1C29C60A0024E1D0 /* MEMELib.m in Sources */,
-				E66A3E1E1C29C7660024E1D0 /* CBPeripheral.m in Sources */,
+				E66A3E1E1C29C7660024E1D0 /* ProxyCBPeripheral.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
