@@ -128,30 +128,30 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
         [self.server setPort:3000];
         [self.server setDefaultHeader:@"content-type" value:@"application/json"];
 
-        [self.server get:@"/memeAppAuthorized:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+        [self.server get:@"/memeAppAuthorized" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             [self setAuthorized:YES];
             [self setAuthorizedPending:NO];
             [self.delegate memeAppAuthorized:[request.params[@"arg0"] intValue]];
         }];
-        [self.server get:@"/memeFirmwareAuthorized:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+        [self.server get:@"/memeFirmwareAuthorized" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             [self.delegate memeFirmwareAuthorized:[request.params[@"arg0"] intValue]];
         }];
-        [self.server get:@"/memePeripheralFound:withDeviceAddress:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+        [self.server get:@"/memePeripheralFound:withDeviceAddress" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
             arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
             [self.delegate memePeripheralFound:arg0 withDeviceAddress:request.params[@"arg1"]];
         }];
-        [self.server get:@"/memePeripheralConnected:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+        [self.server get:@"/memePeripheralConnected" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
             arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
             [self.delegate memePeripheralConnected:arg0];
         }];
-        [self.server get:@"/memePeripheralDisconnected:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+        [self.server get:@"/memePeripheralDisconnected" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
             arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
             [self.delegate memePeripheralDisconnected:arg0];
         }];
-        [self.server get:@"/memeRealTimeModeDataReceived:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+        [self.server get:@"/memeRealTimeModeDataReceived" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             MEMERealTimeData *data = [MEMERealTimeData new];
             data.fitError = [request.params[@"arg0"] intValue];
             data.isWalking = [request.params[@"arg1"] intValue];
@@ -171,7 +171,7 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
 
             [self.delegate memeRealTimeModeDataReceived:data];
         }];
-        [self.server get:@"/memeCommandResponse:" withBlock:^ (RouteRequest *request, RouteResponse *response) {
+        [self.server get:@"/memeCommandResponse" withBlock:^ (RouteRequest *request, RouteResponse *response) {
             MEMEResponse r;
             r.eventCode = [request.params[@"arg0"] intValue];
             r.commandResult = [request.params[@"arg1"] boolValue];
@@ -211,7 +211,7 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
         self.clientSecret = clientSecret;
         
         [self setAuthorizedPending:YES];
-        id result = [self callValueAPI:@"setAppClientId:clientSecret:"
+        id result = [self callValueAPI:@"setAppClientId:clientSecret"
                          withArguments:@[ self.clientID, self.clientSecret ]];
         
         if ([result isEqualToString:@"-1"]) {
@@ -261,7 +261,7 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
 
 - (MEMEStatus) connectPeripheral:(ProxyCBPeripheral *)peripheral
 {
-    return [self callStatusAPI:@"connectPeripheral:" withArguments:@[[[peripheral identifier] UUIDString]]];
+    return [self callStatusAPI:@"connectPeripheral" withArguments:@[[[peripheral identifier] UUIDString]]];
 }
 
 - (MEMEStatus) disconnectPeripheral
@@ -310,7 +310,9 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
 
 - (UInt8) getHWVersion
 {
-    return [[self callValueAPI:@"getHWVersion"] unsignedCharValue];
+    NSString *str = [self callValueAPI:@"getHWVersion"];
+    
+    return (UInt8) [NSNumber numberWithLongLong:str.longLongValue].unsignedIntegerValue;
 }
 
 - (int) getConnectedDeviceType
@@ -329,7 +331,7 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
     withArguments:(NSArray *)args
             error:(NSError * __autoreleasing *)error
 {
-    NSAssert([self isAuthorized] || [api isEqualToString:@"setAppClientId:clientSecret:"],
+    NSAssert([self isAuthorized] || [api isEqualToString:@"setAppClientId:clientSecret"],
                                         @"Client is not initialized/authorized");
  
     NSMutableArray *queryItems = @[].mutableCopy;
