@@ -128,55 +128,84 @@ NSString * const MEMEErrStatusCodeKey = @"com.jins.mem.error.statusCodeKey";
         [self.server setPort:3000];
         [self.server setDefaultHeader:@"content-type" value:@"application/json"];
 
-        [self.server get:@"/memeAppAuthorized" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            [self setAuthorized:YES];
-            [self setAuthorizedPending:NO];
-            [self.delegate memeAppAuthorized:[request.params[@"arg0"] intValue]];
-        }];
-        [self.server get:@"/memeFirmwareAuthorized" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            [self.delegate memeFirmwareAuthorized:[request.params[@"arg0"] intValue]];
-        }];
-        [self.server get:@"/memePeripheralFound:withDeviceAddress" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
-            arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
-            [self.delegate memePeripheralFound:arg0 withDeviceAddress:request.params[@"arg1"]];
-        }];
-        [self.server get:@"/memePeripheralConnected" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
-            arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
-            [self.delegate memePeripheralConnected:arg0];
-        }];
-        [self.server get:@"/memePeripheralDisconnected" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            ProxyCBPeripheral *arg0 = [ProxyCBPeripheral new];
-            arg0.identifier = [[NSUUID alloc] initWithUUIDString:request.params[@"arg0"]];
-            [self.delegate memePeripheralDisconnected:arg0];
-        }];
-        [self.server get:@"/memeRealTimeModeDataReceived" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            MEMERealTimeData *data = [MEMERealTimeData new];
-            data.fitError = [request.params[@"arg0"] intValue];
-            data.isWalking = [request.params[@"arg1"] intValue];
-            data.powerLeft = [request.params[@"arg2"] intValue];
-            data.eyeMoveUp = [request.params[@"arg3"] intValue];
-            data.eyeMoveDown = [request.params[@"arg4"] intValue];
-            data.eyeMoveLeft = [request.params[@"arg5"] intValue];
-            data.eyeMoveRight = [request.params[@"arg6"] intValue];
-            data.blinkSpeed = [request.params[@"arg7"] intValue];
-            data.blinkStrength = [request.params[@"arg8"] intValue];
-            data.roll = [request.params[@"arg9"] floatValue];
-            data.pitch = [request.params[@"arg10"] floatValue];
-            data.yaw = [request.params[@"arg11"] floatValue];
-            data.accX = [request.params[@"arg12"] intValue];
-            data.accY = [request.params[@"arg13"] intValue];
-            data.accZ = [request.params[@"arg14"] intValue];
-
-            [self.delegate memeRealTimeModeDataReceived:data];
-        }];
-        [self.server get:@"/memeCommandResponse" withBlock:^ (RouteRequest *request, RouteResponse *response) {
-            MEMEResponse r;
-            r.eventCode = [request.params[@"arg0"] intValue];
-            r.commandResult = [request.params[@"arg1"] boolValue];
-            [self.delegate memeCommandResponse:r];
-        }];
+        [self.server get:@"/memeAppAuthorized"
+               withBlock:^(RouteRequest *request, RouteResponse *response __unused) {
+                   id<MEMELibDelegate> delegate = self.delegate;
+                   if ([delegate respondsToSelector:@selector(memeAppAuthorized:)]) {
+                       [delegate memeAppAuthorized:[request.params[@"arg0"] intValue]];
+                   }
+               }];
+        [self.server get:@"/memeFirmwareAuthorized"
+               withBlock:^(RouteRequest *request, RouteResponse *response __unused) {
+                   id<MEMELibDelegate> delegate = self.delegate;
+                   if ([delegate respondsToSelector:@selector(memeFirmwareAuthorized:)]) {
+                       [delegate memeFirmwareAuthorized:[request.params[@"arg0"] intValue]];
+                   }
+               }];
+        [self.server get:@"/memePeripheralFound:withDeviceAddress"
+               withBlock:^(RouteRequest *request, RouteResponse *response __unused) {
+                   id<MEMELibDelegate> delegate = self.delegate;
+                   if ([delegate respondsToSelector:@selector(memePeripheralFound:withDeviceAddress:)]) {
+                       ProxyCBPeripheral *peripheral = [ProxyCBPeripheral new];
+                       NSString *arg0 = request.params[@"arg0"];
+                       peripheral.identifier = [[NSUUID alloc] initWithUUIDString:arg0];
+                       [delegate memePeripheralFound:peripheral
+                                   withDeviceAddress:request.params[@"arg1"]];
+                   }
+               }];
+        [self.server get:@"/memePeripheralConnected"
+               withBlock:^(RouteRequest *request, RouteResponse *response __unused) {
+                   id<MEMELibDelegate> delegate = self.delegate;
+                   if ([delegate respondsToSelector:@selector(memePeripheralConnected:)]) {
+                       ProxyCBPeripheral *peripheral = [ProxyCBPeripheral new];
+                       NSString *arg0 = request.params[@"arg0"];
+                       peripheral.identifier = [[NSUUID alloc] initWithUUIDString:arg0];
+                       [delegate memePeripheralConnected:peripheral];
+                   }
+               }];
+        [self.server get:@"/memePeripheralDisconnected"
+               withBlock:^(RouteRequest *request, RouteResponse *response __unused) {
+                   id<MEMELibDelegate> delegate = self.delegate;
+                   if ([delegate respondsToSelector:@selector(memePeripheralDisconnected:)]) {
+                       ProxyCBPeripheral *peripheral = [ProxyCBPeripheral new];
+                       NSString *arg0 = request.params[@"arg0"];
+                       peripheral.identifier = [[NSUUID alloc] initWithUUIDString:arg0];
+                       [delegate memePeripheralDisconnected:peripheral];
+                   }
+               }];
+        [self.server get:@"/memeRealTimeModeDataReceived"
+               withBlock:^(RouteRequest *request, RouteResponse *response __unused) {
+                   id<MEMELibDelegate> delegate = self.delegate;
+                   if ([delegate respondsToSelector:@selector(memeRealTimeModeDataReceived:)]) {
+                       MEMERealTimeData *data = [MEMERealTimeData new];
+                       data.fitError = [request.params[@"arg0"]  unsignedCharValue];
+                       data.isWalking = [request.params[@"arg1"] unsignedCharValue];
+                       data.powerLeft = [request.params[@"arg2"] unsignedCharValue];
+                       data.eyeMoveUp = [request.params[@"arg3"] unsignedCharValue];
+                       data.eyeMoveDown = [request.params[@"arg4"] unsignedCharValue];
+                       data.eyeMoveLeft = [request.params[@"arg5"] unsignedCharValue];
+                       data.eyeMoveRight = [request.params[@"arg6"] unsignedCharValue];
+                       data.blinkSpeed = [request.params[@"arg7"] unsignedCharValue];
+                       data.blinkStrength = [request.params[@"arg8"] unsignedCharValue];
+                       data.roll = [request.params[@"arg9"] floatValue];
+                       data.pitch = [request.params[@"arg10"] floatValue];
+                       data.yaw = [request.params[@"arg11"] floatValue];
+                       data.accX = [request.params[@"arg12"] charValue];
+                       data.accY = [request.params[@"arg13"] charValue];
+                       data.accZ = [request.params[@"arg14"] charValue];
+                       [delegate memeRealTimeModeDataReceived:data];
+                   }
+               }];
+        [self.server get:@"/memeCommandResponse"
+               withBlock:^(RouteRequest *request, RouteResponse *response __unused) {
+                   id<MEMELibDelegate> delegate = self.delegate;
+                   if ([delegate respondsToSelector:@selector(memePeripheralDisconnected:)]) {
+                       MEMEResponse r;
+                       r.eventCode = [request.params[@"arg0"] intValue];
+                       r.commandResult = [request.params[@"arg1"] boolValue];
+                       [delegate memeCommandResponse:r];
+                   }
+               }];
 
         NSError *error;
         if (![self.server start:&error]) {
